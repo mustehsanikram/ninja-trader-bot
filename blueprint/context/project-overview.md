@@ -1,6 +1,6 @@
 # PK NinjaTrader Product Line - Project Overview
 
-<!-- blueprint:source-hash cfd2844026c8d78a24a50c150d2a260720d41db81e4462be299e29db4fdf99aa -->
+<!-- blueprint:source-hash b0a56bb3607502a1f2a3282282db293f2cee69810eae46433174b1e57a1f64cb -->
 
 > **Generated file. Don't hand-edit.** Re-run `/overview` when `project-plan.md`
 > or `build-plan.md` changes materially.
@@ -35,9 +35,12 @@ instrument-agnostic.
 
 MVP is the phase 1 indicator, in build-plan order.
 
-1. **Structure core and adapter** - non-repainting pivot detection as plain C#
-   classes, plus the thin NinjaScript adapter. Sets the architecture everything
-   else inherits.
+1. **Structure core and adapter** - sets the architecture everything else
+   inherits. Split into two.
+   - **1a. Structure core** - **shipped.** Non-repainting pivot detection as
+     plain C# with no NinjaTrader types, with tests proving the guarantee.
+   - **1b. NinjaScript adapter** - the thin `Indicator` that feeds bars into the
+     core and draws confirmed swings. **Needs NT8 installed.**
 2. **Trend labelling** - classify the swing sequence as HH, HL, LH, LL.
 3. **Break of Structure** - identify the structural level, draw it, mark the bar
    whose close breaks it.
@@ -58,6 +61,9 @@ Post-MVP: alerts (10), multi-timeframe structure (11).
 
 Phase 2, gated: structure event API (12), research harness (13). Item 13 decides
 whether anything past it gets built.
+
+> Feature 2 does not depend on 1b. Trend labelling is pure logic over the swing
+> sequence, so it can be built and tested in the core while NT8 is unavailable.
 
 ## Structure definitions
 
@@ -88,28 +94,36 @@ Failed BOS and CHoCH are distinct and can both fire, in that order.
 
 Defaults are starting points, never tuned to make a result look good.
 
+**Pivot rule (settled in 1a):** a pivot high requires `High` strictly greater
+than every bar within `SwingStrength` on both sides. A plateau of equal highs
+produces no pivot. Mirrored for lows.
+
 ## Data model
 
 No database. State is in-memory and rebuilt from bars; only user settings
 persist, through the platform's own property serialization into workspaces and
 chart templates.
 
-These are the core types the structure engine produces and later features
-consume.
-
-### Swing
+### Swing (built in 1a)
 
 - `Index` (int) - bar index of the pivot
 - `Price` (double)
 - `Kind` (enum: High, Low)
-- `Label` (enum: HH, HL, LH, LL, Undetermined) - assigned by feature 2
-- `ConfirmedAtIndex` (int) - `Index + SwingStrength`; the bar at which this swing
-  became known
+- `Label` (enum: Undetermined, HH, HL, LH, LL) - feature 2 populates this
+- `ConfirmedAtIndex` (int) - `Index + SwingStrength`, derived in the constructor
 
 > `ConfirmedAtIndex` is load-bearing. It is what makes the non-repainting claim
-> checkable: nothing may be drawn or acted on before this bar.
+> checkable: nothing may be drawn or acted on before this bar. It is computed in
+> `Swing`'s constructor rather than passed in, so no caller can report a pivot
+> earlier than it became known.
 
-### StructureEvent
+### PivotResult (built in 1a)
+
+What a single bar confirmed: `PivotHigh` and `PivotLow`, either of which may be
+null. Both are populated when an outside bar engulfs its neighbours on both
+sides. Returning a struct keeps the common no-pivot case allocation-free.
+
+### StructureEvent (not built yet, features 3 to 6)
 
 - `Kind` (enum: Bos, FailedBos, Choch, Sweep)
 - `BarIndex` (int) - the bar whose close produced the event
@@ -123,7 +137,7 @@ consume.
 > type rather than re-deriving structure, so indicator and strategy can never
 > disagree.
 
-### RetestZone
+### RetestZone (not built yet, feature 4)
 
 - `SourceEvent` (StructureEvent) - the break that created it
 - `Level` (double)
@@ -134,12 +148,13 @@ consume.
 ## Tech stack
 
 - **NinjaTrader 8** - host platform, Windows only. Compiles NinjaScript
-  in-platform into `NinjaTrader.Custom.dll`.
+  in-platform into `NinjaTrader.Custom.dll`. **Not installed on this machine.**
 - **C# on .NET Framework 4.8** - the runtime NT8 targets. Not .NET 8.
 - **`Indicator` base class** - phase 1. `Strategy` for phase 2.
 - **`Draw.*` helpers** - chart rendering, moving to `OnRender` with SharpDX if
   performance demands.
-- **No third-party dependencies** - they complicate distribution.
+- **xUnit on net8.0** - test project for the core, added in 1a.
+- **No third-party dependencies** in shipped code.
 
 ### Architecture: testable core, thin adapter
 
@@ -147,19 +162,32 @@ The structure engine is plain C# classes taking bar data (time, open, high, low,
 close) and returning structure events, with **no NinjaTrader types in them**.
 The NinjaScript `Indicator` feeds bars in and draws what comes out.
 
-This is the only route to an automated test gate on this stack, makes phase 2
-nearly free, lets the research harness run outside the platform, and gives a
-commercial product regression safety on its core algorithm.
+The core is compiled twice: by `dotnet` for the tests, and by NinjaTrader from
+its own `bin/Custom` folder. The test project links the source with
+`<Compile Include>` rather than referencing a built assembly, so the eventual
+export stays self-contained with no external DLL for customers to install.
+
+`tests/Structure.Tests` pins `LangVersion` to 6 so syntax NinjaTrader cannot
+accept fails at build here rather than at first import.
 
 ### Prerequisites (not build items)
 
-1. Install NinjaTrader 8.
+1. Install NinjaTrader 8. Blocks feature 1b and everything visual after it.
 2. Establish a data connection with real intraday history. A free end-of-day
    feed is not sufficient; a broker sim or demo account is the usual route.
 3. Confirm what depth and granularity of NQ history that connection provides.
 
-> TODO: confirm the C# language version this NT8 build accepts at first compile.
-> Older builds cap well below current C#.
+> TODO: confirm the C# language version this NT8 build accepts at first compile,
+> and raise `LangVersion` to match. The current pin of 6 is a conservative guess.
+
+## Commands
+
+- Test: `dotnet test tests/Structure.Tests`
+- Build (NinjaScript): not available, needs an NT8 install
+- Verify: not set up. `/ci` owns that.
+
+**The test gate is on.** Any step adding logic must ship a passing test in the
+same diff, and the suite must be green before a checkpoint commit or `/complete`.
 
 ## Monetization
 
@@ -198,7 +226,8 @@ Tools, Import.
   sharing; determined copying of a decompilable .NET assembly cannot be
   prevented. Belongs in item 9 and must not shape the architecture earlier.
 
-No build command, no test command, no CI. NT8 compiles in-platform.
+No build command, no test command for the NinjaScript half, no CI. NT8 compiles
+in-platform.
 
 ## Constraints
 
@@ -215,6 +244,9 @@ selling; no build work is blocked on it.
 `ConfirmedAtIndex`. This is the product's central claim and the main technical
 risk.
 
+**No NinjaTrader types in `src/Structure/`.** The isolation is what makes the
+tests and the phase 2 research harness possible.
+
 ## Non-goals
 
 The automated strategy (phase 2, gated), PK Trade Accounting integration,
@@ -227,7 +259,9 @@ instrument-specific tuning.
    name in use meanwhile.
 2. **Jurisdiction and legal review.** Required before selling, not before
    building.
-3. **Licensing conflict.** The repository currently carries an MIT licence,
-   which grants anyone the right to use, modify, distribute, and sell the code.
-   That contradicts the commercial model and the licence check planned in item
-   9. Not recorded in either plan; resolve and re-run `/overview`.
+3. **Licensing conflict.** The repository carries an MIT licence, which grants
+   anyone the right to use, modify, distribute, and sell the code. That
+   contradicts the commercial model in `project-plan.md` section 7 and the
+   licence check planned in item 9. **Not recorded in either plan**, so this
+   entry does not survive the next regeneration. Add it to `project-plan.md`
+   section 12 to make it durable.
