@@ -1,0 +1,26 @@
+# Build output
+bin/
+obj/
+*.dll
+*.pdb
+*.user
+
+# NinjaTrader generated / machine-local
+NinjaTrader.Custom.csproj.user
+*.suo
+.vs/
+
+# Logs, traces, Strategy Analyzer output
+log/
+trace/
+*.log
+*.csv.bak
+
+# Blueprint local state (generated, not part of a feature commit)
+blueprint/.state/run.json
+
+# OS / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+.idea/
