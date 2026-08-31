@@ -15,8 +15,11 @@ section 4.
     non-repainting guarantee. Buildable without NinjaTrader installed.
   - [ ] 1b. **NinjaScript adapter** - the thin `Indicator` that feeds bars into
     the core and draws confirmed swings. Requires NT8 installed.
-- [ ] 2. **Trend labelling** - classify the swing sequence as HH, HL, LH, LL and
-  label each swing on the chart.
+- [ ] 2. **Trend labelling** - classify the swing sequence and show it.
+  - [x] 2a. **Trend classification** - assign HH, HL, LH, LL to each confirmed
+    swing and derive trend state from the sequence, in the core. Buildable
+    without NinjaTrader.
+  - [ ] 2b. **Swing labels on chart** - render the labels. Requires NT8 and 1b.
 - [ ] 3. **Break of Structure** - identify the structural level from the swing
   sequence, draw it, and mark the bar whose close breaks it.
 - [ ] 4. **Retest zones** - after a break, mark the retest area and track it
