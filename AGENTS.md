@@ -202,9 +202,23 @@ checks do not make the Blueprint unusable.
 
 ## Commands
 
-> NinjaTrader 8 is **not installed on this machine**, and the strategy source is not
-> here yet. Nothing below can run until both exist. Do not invent a build or test
-> command to fill this section.
+The structure core under `src/Structure/` is plain C# with no NinjaTrader
+dependency, so it builds and tests with `dotnet` today. The NinjaScript half
+needs NinjaTrader 8, which is **not installed on this machine**.
+
+- Test: `dotnet test tests/Structure.Tests`
+- Build (core only): `dotnet build tests/Structure.Tests`
+- Build (NinjaScript): not available, needs an NT8 install
+- Verify: not set up. Run `/ci` when you want one combined command.
+
+**The test gate is on.** Any step adding logic must ship a passing test in the
+same diff, and the suite must be green before a checkpoint commit or `/complete`.
+
+The core source is compiled twice: by `dotnet` for tests, and by NinjaTrader from
+its own `bin/Custom` folder. `tests/Structure.Tests` pins `LangVersion` to 6 so
+syntax NinjaTrader cannot accept fails at build here rather than at first import.
+
+### NinjaScript tasks (need NT8)
 
 NinjaScript is not built with `dotnet`. NinjaTrader compiles `bin/Custom/**/*.cs`
 itself into `NinjaTrader.Custom.dll`. The platform targets .NET Framework 4.8 and
@@ -218,11 +232,6 @@ is Windows-only.
 | Realtime vs historical repro | Control Center, Connections, Market Replay |
 | Strategy logs | Control Center Log tab; `Print()` goes to NinjaScript Output |
 
-- Build: not available (needs an NT8 install)
-- Test: not available (no unit test runner; NinjaScript ships none)
-- Verify: not available
-
-> TODO (once NT8 is installed): decide whether this repo
-> mirrors `Documents/NinjaTrader 8/bin/Custom/` directly or by symlink, and whether
-> a headless compile against the install's reference assemblies is worth wiring up
-> as a Verify command.
+> TODO (once NT8 is installed): confirm the C# language version it accepts and
+> raise `LangVersion` to match. Decide whether this repo mirrors
+> `Documents/NinjaTrader 8/bin/Custom/` directly or by symlink.

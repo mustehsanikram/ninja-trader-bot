@@ -8,10 +8,13 @@ section 4.
 
 ## MVP - Phase 1 indicator
 
-- [ ] 1. **Structure core and adapter** - non-repainting pivot detection as
-  plain C# classes with no NinjaTrader types, plus the thin NinjaScript
-  `Indicator` that feeds bars in and draws swings out. Establishes the
-  architecture every later item builds on.
+- [ ] 1. **Structure core and adapter** - establishes the architecture every
+  later item builds on.
+  - [x] 1a. **Structure core** - non-repainting pivot detection as plain C#
+    classes with no NinjaTrader types, with a test project proving the
+    non-repainting guarantee. Buildable without NinjaTrader installed.
+  - [ ] 1b. **NinjaScript adapter** - the thin `Indicator` that feeds bars into
+    the core and draws confirmed swings. Requires NT8 installed.
 - [ ] 2. **Trend labelling** - classify the swing sequence as HH, HL, LH, LL and
   label each swing on the chart.
 - [ ] 3. **Break of Structure** - identify the structural level from the swing
