@@ -7,32 +7,6 @@
 > finding is `open` or `fixed`, then archives resolved findings with the work
 > and resets this file.
 
-### F-01 [P1] open - PivotDetector has no reset and no guard against a repeated bar
-
-**File:** src/Structure/PivotDetector.cs:38
-**Found:** 2026-08-31 by /audit (scope: full; lens: quality)
-**Why it matters:** `OnBar` unconditionally writes to the ring buffer, advances
-`_writeIndex` and increments `_barsSeen`. Feeding the same bar twice therefore
-occupies two slots and double counts, which shifts every subsequent
-`candidateIndex` away from the true bar index. There is no `Reset()` on either
-`PivotDetector` or `SwingSequence`, so accumulated state cannot be cleared.
-
-Both matter for feature 1b specifically. NinjaScript calls `OnBarUpdate` once per
-bar under `Calculate.OnBarClose`, but repeatedly for the forming bar under
-`Calculate.OnEachTick` and `Calculate.OnPriceChange`. NinjaTrader also
-re-initialises indicators on reload, parameter change and data refresh. The core
-currently has no way to survive either.
-
-This is also the historical versus realtime divergence class: historical
-processing is bar by bar regardless of the `Calculate` setting, so the same code
-would be fed once per bar in Strategy Analyzer and many times per bar live.
-
-**Suggested fix:** Add `Reset()` to `PivotDetector` and `SwingSequence`. Decide in
-the 1b spec where the repeat guard belongs: the adapter gating on
-`IsFirstTickOfBar`, or `OnBar` taking a bar index and ignoring a repeat. The
-adapter-side guard is simpler and keeps the core free of platform assumptions.
-**Resolution:**
-
 ### F-02 [P2] open - Shared bar helper hardcodes Close equal to High
 
 **File:** tests/Structure.Tests/TestBars.cs:22
@@ -135,7 +109,8 @@ before changing anything. The rule may be correct; it is simply unmeasured.
 
 **File:** tests/Structure.Tests/TestBars.cs:66
 **Found:** 2026-08-31 by /audit (scope: full; lens: tests)
-**Why it matters:** All 62 tests derive their bars from `BuildSeries`, two summed
+**Why it matters:** Every test that exercises a realistic series derives its bars
+from `BuildSeries`, two summed
 sine functions. It is smooth and continuous, with no gaps, no repeated prices, no
 session breaks, no spikes and no flat periods. The suite proves the engine is
 internally consistent and does not repaint. It cannot say anything about how the
@@ -159,4 +134,54 @@ higher, the codebase is needlessly restricted and F-05 stays unfixable.
 
 **Suggested fix:** Confirm at first compile inside NinjaTrader and set the pin to
 the real value.
+**Resolution:**
+
+### F-10 [P2] open - Swing assertion helper duplicated across two test files
+
+**File:** tests/Structure.Tests/ResetTests.cs:28
+**Found:** 2026-08-31 by /audit (scope: current; lens: quality)
+**Why it matters:** `AssertSameSwing(Swing, Swing)` now exists in near identical
+form in `NonRepaintingTests.cs:150` and `ResetTests.cs:28`. Both compare `Index`,
+`Price`, `Kind` and `ConfirmedAtIndex` and both treat null as expected-null.
+
+Introduced by the `reset-and-bar-index/F-01` repair, so this is new rather than
+pre-existing. It is a
+second instance of the pattern already recorded in F-03: shared test helpers are
+being written locally per file instead of in `TestBars`. The risk is drift. If
+`Swing` gains a field that matters, one copy gets updated and the other silently
+keeps passing.
+
+`ResetTests.cs` also constructs swings inline with `new Swing(...)` while
+`SwingSequenceTests.cs` and `TrendStateTests.cs` use their own local `High()` and
+`Low()` helpers, so there are now three conventions for the same job.
+
+**Suggested fix:** Move `AssertSameSwing`, `AssertSameConfirmations`, `High` and
+`Low` into `TestBars` and delete every local copy. Fix alongside F-03, since it
+is the same cleanup.
+**Resolution:**
+
+### F-11 [P2] open - A gapped bar index throws into the platform
+
+**File:** src/Structure/PivotDetector.cs:57
+**Found:** 2026-08-31 by /audit (scope: current; lens: quality)
+**Why it matters:** `OnBar` throws `ArgumentOutOfRangeException` when `barIndex`
+is anything other than the next one. That covers going backwards, which the fix
+spec asked for, and also a forward gap, which it did not.
+
+Throwing is the right instinct for a product whose central claim is that its
+output can be trusted: silently accepting a gap would corrupt the pivot
+arithmetic, because the ring buffer assumes its bars are adjacent. But the
+exception surfaces inside `OnBarUpdate` once feature 1b exists, and an unhandled
+exception there disables the indicator on the user's chart and writes to the NT8
+log. For a paid product that is a hard failure mode reached through a condition
+nobody has yet proven cannot occur.
+
+Whether NinjaTrader can ever deliver a non-contiguous `CurrentBar` is unknown
+without the platform installed. Candidate paths worth checking: historical bar
+revision on reload, `BarsRequiredToPlot`, and switching a chart's data series.
+
+**Suggested fix:** Decide in the 1b spec how the adapter handles it. Catching the
+exception and calling `Reset()` is one option; proving the gap cannot occur and
+leaving the throw as a contract assertion is another. Do not remove the guard and
+let a gap through silently.
 **Resolution:**

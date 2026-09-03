@@ -40,6 +40,16 @@ namespace PkStructure
         }
 
         /// <summary>
+        /// Forgets every swing seen so far, so the next one starts a fresh
+        /// sequence. Pairs with PivotDetector.Reset when the host reloads.
+        /// </summary>
+        public void Reset()
+        {
+            _lastHigh = null;
+            _lastLow = null;
+        }
+
+        /// <summary>
         /// Labels the swing and takes it as the new reference for its kind. Swings
         /// must arrive in confirmation order, which is what PivotDetector emits.
         /// </summary>

@@ -40,7 +40,7 @@ namespace PkStructure.Tests
 
             for (int i = 0; i < barCount; i++)
             {
-                PivotResult result = detector.OnBar(Make(highs[i], lows[i]));
+                PivotResult result = detector.OnBar(i, Make(highs[i], lows[i]));
                 if (!result.HasAny)
                     continue;
 
