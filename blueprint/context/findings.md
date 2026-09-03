@@ -27,20 +27,6 @@ and keep the two argument form for pivot tests. Do this before feature 3 is
 spec'd, not during it.
 **Resolution:**
 
-### F-03 [P2] open - Swing test helpers duplicated across two test files
-
-**File:** tests/Structure.Tests/TrendStateTests.cs:10
-**Found:** 2026-08-31 by /audit (scope: full; lens: quality)
-**Why it matters:** `High(int, double)` and `Low(int, double)` are byte identical
-in `SwingSequenceTests.cs:11` and `TrendStateTests.cs:10`, including the private
-`Strength` constant they depend on. `TestBars` already exists as the shared helper
-location. Features 3 to 6 will each want the same two helpers, so this duplicates
-again on every future test file unless it is moved now.
-
-**Suggested fix:** Move both into `TestBars` alongside `Make` and `Feed`, and
-delete the local copies.
-**Resolution:**
-
 ### F-04 [P3] open - Bar.Time is written but never read, and no session logic exists
 
 **File:** src/Structure/Bar.cs:7
@@ -146,7 +132,7 @@ form in `NonRepaintingTests.cs:150` and `ResetTests.cs:28`. Both compare `Index`
 
 Introduced by the `reset-and-bar-index/F-01` repair, so this is new rather than
 pre-existing. It is a
-second instance of the pattern already recorded in F-03: shared test helpers are
+second instance of the pattern already recorded in `consolidate-test-helpers/F-03`: shared test helpers are
 being written locally per file instead of in `TestBars`. The risk is drift. If
 `Swing` gains a field that matters, one copy gets updated and the other silently
 keeps passing.
@@ -156,9 +142,29 @@ keeps passing.
 `Low()` helpers, so there are now three conventions for the same job.
 
 **Suggested fix:** Move `AssertSameSwing`, `AssertSameConfirmations`, `High` and
-`Low` into `TestBars` and delete every local copy. Fix alongside F-03, since it
+`Low` into `TestBars` and delete every local copy. Fix alongside `consolidate-test-helpers/F-03`, since it
 is the same cleanup.
-**Resolution:**
+**Resolution:** Fixed in `fix/consolidate-test-helpers`, alongside `consolidate-test-helpers/F-03`, but into
+a new `SwingAssert` class rather than `TestBars` as suggested. `TestBars` had no
+`Xunit` reference and its job is building data; folding assertions in would have
+pulled a test framework into it. `SwingAssert.SameSwing` and
+`SwingAssert.SameConfirmations` now serve `NonRepaintingTests` and `ResetTests`,
+and both local copies are gone. Verified reached, not bypassed: weakening
+`SameSwing` to compare `Index + 1` failed 8 tests.
+
+Re-reviewed 2026-09-03 by /audit (scope: current). **Repair is incomplete, so
+status returns to `open` rather than closing.** The `AssertSameSwing` half is
+genuinely resolved. The confirmation-comparison half is not:
+`NonRepaintingTests.cs:47-55` still carries an inline loop that is line for line
+identical to `SwingAssert.SameConfirmations`, including the `Assert.Equal` on
+`Count`, the `BarIndex` comparison and both `SameSwing` calls. The repair swapped
+the inner assertion for the shared one but left the surrounding loop in place, so
+the duplication this finding names still exists in a different shape.
+
+Remaining work: replace that loop with a single
+`SwingAssert.SameConfirmations(expected, prefix)` call.
+`StructurePipelineTests` has a similar loop but over its own `LabelledSwing`
+type, not `Confirmation`, so it is correctly out of scope.
 
 ### F-11 [P2] open - A gapped bar index throws into the platform
 

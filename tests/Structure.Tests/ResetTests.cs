@@ -12,34 +12,6 @@ namespace PkStructure.Tests
     {
         private const int BarCount = 200;
 
-        private static void AssertSameConfirmations(
-            List<Confirmation> expected, List<Confirmation> actual)
-        {
-            Assert.Equal(expected.Count, actual.Count);
-
-            for (int i = 0; i < expected.Count; i++)
-            {
-                Assert.Equal(expected[i].BarIndex, actual[i].BarIndex);
-                AssertSameSwing(expected[i].PivotHigh, actual[i].PivotHigh);
-                AssertSameSwing(expected[i].PivotLow, actual[i].PivotLow);
-            }
-        }
-
-        private static void AssertSameSwing(Swing expected, Swing actual)
-        {
-            if (expected == null)
-            {
-                Assert.Null(actual);
-                return;
-            }
-
-            Assert.NotNull(actual);
-            Assert.Equal(expected.Index, actual.Index);
-            Assert.Equal(expected.Price, actual.Price);
-            Assert.Equal(expected.Kind, actual.Kind);
-            Assert.Equal(expected.ConfirmedAtIndex, actual.ConfirmedAtIndex);
-        }
-
         [Theory]
         [InlineData(1)]
         [InlineData(3)]
@@ -59,7 +31,7 @@ namespace PkStructure.Tests
             List<Confirmation> afterReset = TestBars.Feed(reused, highs, lows);
 
             Assert.NotEmpty(fresh);
-            AssertSameConfirmations(fresh, afterReset);
+            SwingAssert.SameConfirmations(fresh, afterReset);
         }
 
         [Fact]
@@ -95,7 +67,7 @@ namespace PkStructure.Tests
             reset.Reset();
             List<Confirmation> afterReset = TestBars.Feed(reset, highs, lows);
 
-            AssertSameConfirmations(fresh, afterReset);
+            SwingAssert.SameConfirmations(fresh, afterReset);
         }
 
         [Fact]
@@ -104,10 +76,10 @@ namespace PkStructure.Tests
             var sequence = new SwingSequence();
 
             // Establish a downtrend, then reset and replay an uptrend.
-            sequence.Add(new Swing(10, 110.0, SwingKind.High, 3));
-            sequence.Add(new Swing(20, 95.0, SwingKind.Low, 3));
-            sequence.Add(new Swing(30, 100.0, SwingKind.High, 3));
-            sequence.Add(new Swing(40, 90.0, SwingKind.Low, 3));
+            sequence.Add(TestBars.High(10, 110.0));
+            sequence.Add(TestBars.Low(20, 95.0));
+            sequence.Add(TestBars.High(30, 100.0));
+            sequence.Add(TestBars.Low(40, 90.0));
             Assert.Equal(TrendState.Downtrend, sequence.State);
 
             sequence.Reset();
@@ -116,7 +88,7 @@ namespace PkStructure.Tests
             Assert.Null(sequence.LastLow);
             Assert.Equal(TrendState.Undetermined, sequence.State);
 
-            Swing firstHigh = new Swing(50, 100.0, SwingKind.High, 3);
+            Swing firstHigh = TestBars.High(50, 100.0);
             sequence.Add(firstHigh);
 
             // Without the reset this high would be labelled against the 100.0 from
@@ -125,7 +97,7 @@ namespace PkStructure.Tests
             Assert.Equal(TrendLabel.Undetermined, firstHigh.Label);
             Assert.Same(firstHigh, sequence.LastHigh);
 
-            Swing secondHigh = new Swing(60, 120.0, SwingKind.High, 3);
+            Swing secondHigh = TestBars.High(60, 120.0);
             sequence.Add(secondHigh);
             Assert.Equal(TrendLabel.HH, secondHigh.Label);
         }

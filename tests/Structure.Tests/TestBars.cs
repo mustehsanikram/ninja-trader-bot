@@ -14,6 +14,19 @@ namespace PkStructure.Tests
 
     internal static class TestBars
     {
+        /// <summary>Default SwingStrength for hand-built swings.</summary>
+        public const int Strength = 3;
+
+        public static Swing High(int index, double price)
+        {
+            return new Swing(index, price, SwingKind.High, Strength);
+        }
+
+        public static Swing Low(int index, double price)
+        {
+            return new Swing(index, price, SwingKind.Low, Strength);
+        }
+
         public static Bar Make(double high, double low)
         {
             var bar = new Bar();

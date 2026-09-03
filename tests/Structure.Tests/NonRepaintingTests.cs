@@ -49,8 +49,8 @@ namespace PkStructure.Tests
                 for (int i = 0; i < expected.Count; i++)
                 {
                     Assert.Equal(expected[i].BarIndex, prefix[i].BarIndex);
-                    AssertSameSwing(expected[i].PivotHigh, prefix[i].PivotHigh);
-                    AssertSameSwing(expected[i].PivotLow, prefix[i].PivotLow);
+                    SwingAssert.SameSwing(expected[i].PivotHigh, prefix[i].PivotHigh);
+                    SwingAssert.SameSwing(expected[i].PivotLow, prefix[i].PivotLow);
                 }
             }
         }
@@ -147,19 +147,5 @@ namespace PkStructure.Tests
             Assert.Equal(barIndex - swingStrength, swing.Index);
         }
 
-        private static void AssertSameSwing(Swing expected, Swing actual)
-        {
-            if (expected == null)
-            {
-                Assert.Null(actual);
-                return;
-            }
-
-            Assert.NotNull(actual);
-            Assert.Equal(expected.Index, actual.Index);
-            Assert.Equal(expected.Price, actual.Price);
-            Assert.Equal(expected.Kind, actual.Kind);
-            Assert.Equal(expected.ConfirmedAtIndex, actual.ConfirmedAtIndex);
-        }
     }
 }
