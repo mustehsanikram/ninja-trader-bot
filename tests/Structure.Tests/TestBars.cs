@@ -27,14 +27,26 @@ namespace PkStructure.Tests
             return new Swing(index, price, SwingKind.Low, Strength);
         }
 
+        /// <summary>
+        /// A bar with no opinion about its open or close: both sit at the midpoint.
+        /// Deliberately not pinned to high or low, so this form can never
+        /// accidentally satisfy a close-beyond-a-level condition. Use the four
+        /// argument form whenever the close is what the test is about.
+        /// </summary>
         public static Bar Make(double high, double low)
+        {
+            double middle = (high + low) / 2.0;
+            return Make(middle, high, low, middle);
+        }
+
+        public static Bar Make(double open, double high, double low, double close)
         {
             var bar = new Bar();
             bar.Time = new DateTime(2026, 1, 1);
-            bar.Open = low;
+            bar.Open = open;
             bar.High = high;
             bar.Low = low;
-            bar.Close = high;
+            bar.Close = close;
             return bar;
         }
 

@@ -7,26 +7,6 @@
 > finding is `open` or `fixed`, then archives resolved findings with the work
 > and resets this file.
 
-### F-02 [P2] open - Shared bar helper hardcodes Close equal to High
-
-**File:** tests/Structure.Tests/TestBars.cs:22
-**Found:** 2026-08-31 by /audit (scope: full; lens: tests)
-**Why it matters:** `TestBars.Make` sets `Open = low` and `Close = high`, so every
-bar in every test is a full range bar whose close sits exactly on its high. That
-is harmless for features 1a and 2a, which only read `High` and `Low`.
-
-It becomes a trap at feature 3. The structure definitions confirm a break when a
-bar **closes** beyond a level, and record wick-only penetration as a sweep rather
-than a break. A test series where close always equals high cannot distinguish
-those two cases at all, so tests written against this helper would pass while the
-close versus wick logic went unexercised. That distinction is what the
-non-repainting claim rests on.
-
-**Suggested fix:** Add a four argument overload taking open, high, low and close,
-and keep the two argument form for pivot tests. Do this before feature 3 is
-spec'd, not during it.
-**Resolution:**
-
 ### F-04 [P3] open - Bar.Time is written but never read, and no session logic exists
 
 **File:** src/Structure/Bar.cs:7
@@ -102,7 +82,8 @@ session breaks, no spikes and no flat periods. The suite proves the engine is
 internally consistent and does not repaint. It cannot say anything about how the
 engine behaves on the input it was built for.
 
-F-02, F-04, F-06 and F-07 are all specific instances of this one gap.
+F-04, F-06, F-07 and the archived `test-bar-open-close/F-02` are all specific
+instances of this one gap.
 
 **Suggested fix:** Obtain a historical NQ minute or tick CSV and run the existing
 pipeline over it, reporting swing count, label distribution and trend state
@@ -190,4 +171,29 @@ revision on reload, `BarsRequiredToPlot`, and switching a chart's data series.
 exception and calling `Reset()` is one option; proving the gap cannot occur and
 leaving the throw as a contract assertion is another. Do not remove the guard and
 let a gap through silently.
+**Resolution:**
+
+### F-12 [P3] open - Zero range bar defeats the midpoint close guarantee
+
+**File:** tests/Structure.Tests/TestBars.cs:22
+**Found:** 2026-09-03 by /audit (scope: current; lens: tests)
+**Why it matters:** The two argument `Make` documents that it "can never
+accidentally satisfy a close-beyond-a-level condition". That holds whenever
+`high > low`, because the midpoint sits strictly inside the range.
+
+It does not hold when `high == low`. A zero range bar makes the midpoint equal to
+both extremes, so `Close == High`, which is exactly the state
+`test-bar-open-close/F-02` was raised to remove. The doc comment therefore overclaims, and the three theory cases pinning
+the strictly-between property all use `high > low`, so nothing catches it.
+
+No live defect: no caller passes a zero range bar, and `BuildSeries` always
+produces a range of 2.0. The exposure is future. A zero range bar is a real
+market shape, a bar with a single trade, and feature 3 is exactly the kind of work
+that would reach for one.
+
+**Suggested fix:** Either reject `high == low` in the two argument form and make
+callers use the four argument overload for that shape, or soften the doc comment
+to state the precondition. Rejecting is preferable: it keeps the guarantee
+absolute rather than conditional, and the four argument form already covers the
+case properly.
 **Resolution:**
