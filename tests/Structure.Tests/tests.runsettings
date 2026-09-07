@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RunSettings>
+  <RunConfiguration>
+    <!-- A run that discovers no tests must fail. Without this, dotnet test
+         exits 0 for both "everything passed" and "nothing ran", and the test
+         command is this project's only automated gate. -->
+    <TreatNoTestsAsError>true</TreatNoTestsAsError>
+  </RunConfiguration>
+</RunSettings>

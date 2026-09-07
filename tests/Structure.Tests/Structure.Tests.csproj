@@ -12,6 +12,10 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+
+    <!-- Applies tests.runsettings to the bare `dotnet test` command, so the
+         no-tests-discovered guard needs no flag at the call site. -->
+    <RunSettingsFilePath>$(MSBuildProjectDirectory)/tests.runsettings</RunSettingsFilePath>
   </PropertyGroup>
 
   <ItemGroup>

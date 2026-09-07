@@ -150,8 +150,18 @@ verified through the platform:
 - Market Replay for realtime behaviour without live risk
 - Sim101 for forward testing
 
-An empty suite should fail rather than pass, so "no tests ran" never reads as
-"passed". Test files live beside the source they cover.
+Test files live beside the source they cover.
+
+### Why an empty run fails
+
+`tests/Structure.Tests/tests.runsettings` sets `TreatNoTestsAsError`, and the
+csproj points at it with `RunSettingsFilePath` so the bare test command picks it
+up without a flag. A run that discovers no tests exits non-zero.
+
+This is not decoration. Measured before the guard existed, `dotnet test` exited 0
+whether it ran 89 tests or none, so anything treating the command as a gate read
+"nothing ran" as "everything passed". Setting `TreatNoTestsAsError` as an MSBuild
+property in the csproj does **not** work; only the runsettings route does.
 
 ## Verification
 

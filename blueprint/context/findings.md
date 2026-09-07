@@ -172,35 +172,3 @@ exception and calling `Reset()` is one option; proving the gap cannot occur and
 leaving the throw as a contract assertion is another. Do not remove the guard and
 let a gap through silently.
 **Resolution:**
-
-### F-13 [P2] open - An empty test run exits zero, so "no tests ran" reads as "passed"
-
-**File:** tests/Structure.Tests/Structure.Tests.csproj:4
-**Found:** 2026-09-03 by /audit (scope: current; lens: tests)
-**Why it matters:** Measured directly, without a pipe swallowing the code:
-
-    dotnet test ... --filter "<matches nothing>"   exit 0, zero tests run
-    dotnet test ...                                exit 0, 84 tests run
-
-The exit code cannot tell the two apart. Anything that consumes the test command
-as a gate, this project's own workflow included, would read a run that discovered
-no tests as a clean pass.
-
-The suite currently discovers all 84 tests, so there is no live failure. The risk
-is a future change that breaks discovery quietly: a renamed assembly, a project
-reference that stops resolving, a filter left in a script, or a build that emits
-no test DLL. In a project whose test gate is the only automated verification,
-that failure mode is silent and total.
-
-`coding-standards.md` now asserts "An empty suite should fail rather than pass, so
-'no tests ran' never reads as 'passed'." That sentence is currently false. It was
-carried over from the Blueprint template's generic guidance and restated during
-this session's rewrite without being checked, which is the exact habit the
-mutation-checking rule directly above it was added to prevent.
-
-**Suggested fix:** Add `<TreatNoTestsAsError>true</TreatNoTestsAsError>` to the
-test project's `PropertyGroup`, then re-run the empty-filter command and confirm
-it now exits non-zero. If that property does not behave as expected on this SDK,
-soften the sentence in `coding-standards.md` to say what is actually true rather
-than leaving an unenforced claim in the document that defines the gate.
-**Resolution:**
