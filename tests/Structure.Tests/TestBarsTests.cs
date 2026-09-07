@@ -1,3 +1,4 @@
+using System;
 using PkStructure;
 using Xunit;
 
@@ -47,6 +48,37 @@ namespace PkStructure.Tests
             Assert.True(bar.Close > bar.Low, "close must sit above the low");
             Assert.True(bar.Close < bar.High, "close must sit below the high");
             Assert.Equal(bar.Open, bar.Close);
+        }
+
+        [Theory]
+        [InlineData(100.0, 100.0)]   // zero range: no midpoint sits inside it
+        [InlineData(90.0, 100.0)]    // inverted: not a bar at all
+        [InlineData(0.0, 0.0)]
+        public void TwoArgumentForm_RejectsARangeItCannotPlaceACloseInside(
+            double high, double low)
+        {
+            // Refusing beats silently returning Close == High, which is the state
+            // the midpoint exists to avoid.
+            Assert.Throws<ArgumentOutOfRangeException>(() => TestBars.Make(high, low));
+        }
+
+        [Fact]
+        public void FourArgumentForm_AcceptsAFlatBarAndKeepsTheCloseGiven()
+        {
+            // A bar with a single trade is a real shape. The caller states the
+            // close instead of inheriting a misleading default.
+            Bar flat = TestBars.Make(100.0, 100.0, 100.0, 100.0);
+
+            Assert.Equal(100.0, flat.High);
+            Assert.Equal(100.0, flat.Low);
+            Assert.Equal(100.0, flat.Close);
+        }
+
+        [Fact]
+        public void FourArgumentForm_RejectsAHighBelowItsLow()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => TestBars.Make(95.0, 90.0, 100.0, 95.0));
         }
 
         [Fact]

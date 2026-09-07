@@ -28,19 +28,36 @@ namespace PkStructure.Tests
         }
 
         /// <summary>
-        /// A bar with no opinion about its open or close: both sit at the midpoint.
-        /// Deliberately not pinned to high or low, so this form can never
-        /// accidentally satisfy a close-beyond-a-level condition. Use the four
-        /// argument form whenever the close is what the test is about.
+        /// A bar with no opinion about its open or close: both sit at the midpoint,
+        /// strictly inside the range. This form can never satisfy a
+        /// close-beyond-a-level condition, which is why it rejects a range it
+        /// cannot place a close inside. Use the four argument form whenever the
+        /// close is what the test is about, or when the bar is flat.
         /// </summary>
         public static Bar Make(double high, double low)
         {
+            if (high <= low)
+                throw new ArgumentOutOfRangeException(
+                    "high",
+                    "This form needs high > low so the close can sit strictly inside "
+                    + "the range. Use the four argument overload for a flat or "
+                    + "deliberately shaped bar.");
+
             double middle = (high + low) / 2.0;
             return Make(middle, high, low, middle);
         }
 
+        /// <summary>
+        /// A bar stated in full. Allows high == low, which is how a flat bar gets
+        /// built. Open and close are not range checked, so a caller can construct a
+        /// deliberately impossible bar when that is the point of the test.
+        /// </summary>
         public static Bar Make(double open, double high, double low, double close)
         {
+            if (high < low)
+                throw new ArgumentOutOfRangeException(
+                    "high", "A bar cannot have a high below its low.");
+
             var bar = new Bar();
             bar.Time = new DateTime(2026, 1, 1);
             bar.Open = open;
