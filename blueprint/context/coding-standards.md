@@ -98,21 +98,60 @@ Optimization runs execute the strategy thousands of times, so the hot path matte
 
 ## Testing
 
-There is no unit test runner, and NinjaScript ships none. Testing is currently
-manual through the platform:
+**The test gate is on.** `AGENTS.md` declares `dotnet test tests/Structure.Tests`.
+Any step that adds or changes logic ships a passing test in the same diff, and
+the suite must be green before a checkpoint commit or `/complete`.
+
+The runner is xUnit on `net8.0`. It compiles the core source directly with
+`<Compile Include>` rather than referencing a built assembly, so the eventual
+NinjaScript export stays self-contained. `LangVersion` is pinned to 6 there, so
+syntax NinjaTrader cannot accept fails at build here rather than at first import.
+
+- **In scope for tests:** pure logic where a wrong answer is possible. Pivot
+  detection, trend classification, break and retest rules, invalidation. These
+  have assertable inputs and real edge cases.
+- **Out of scope:** anything needing NinjaTrader. The adapter, chart rendering,
+  and order handling are verified in the platform, not here.
+
+### Mutation checking
+
+A passing test proves nothing until you have seen it fail. For any step that adds
+or changes logic:
+
+1. Make the smallest edit that should break the behaviour.
+2. **Confirm the edit is actually present in the source** before running anything.
+3. Run the suite and record which tests failed.
+4. Restore, re-run, and confirm the working tree is clean.
+
+Step 2 is not pedantry. Two mutation runs in this project reported a pass because
+the edit silently never applied, and a pass means "this guard is untested", which
+is exactly backwards from what it looked like. Verify, then trust.
+
+Record the mutation and its failure count with the step's evidence. A mutation
+that fails zero tests is a finding, not a formality.
+
+### Writing a "done when" that can fail
+
+- **Assert a property, not the absence of a pattern.** "The close sits strictly
+  between low and high" catches a regression. "A search for the old helper returns
+  nothing" does not catch the same logic under a new name, and did not.
+- **Test-count preservation catches a test being lost.** It is blind to work being
+  unfinished. Use it alongside a property check, never instead of one.
+- **For consolidation work, count the call sites reaching one implementation**
+  rather than counting duplicates removed. The first is falsifiable; the second
+  passes while an equivalent copy survives.
+
+### The NinjaScript half
+
+Nothing under `bin/Custom` can be unit tested. When that code exists it is
+verified through the platform:
 
 - Strategy Analyzer for backtest and optimization
-- Market Replay for realtime behavior without live risk
-- Sim101 account for forward testing
+- Market Replay for realtime behaviour without live risk
+- Sim101 for forward testing
 
-**The test gate is off**, because `AGENTS.md` declares no `test` command. It turns on
-only if a runner is added. That would mean extracting pure decision logic (structure
-detection, qualification, invalidation) into plain classes with no NinjaTrader
-dependency, testable outside the platform. That is a real option worth considering
-for a commercial-grade engine, but it is a project decision, not a default.
-
-Until then, logic changes are verified with Strategy Analyzer evidence and Market
-Replay observation, not assertions.
+An empty suite should fail rather than pass, so "no tests ran" never reads as
+"passed". Test files live beside the source they cover.
 
 ## Verification
 
